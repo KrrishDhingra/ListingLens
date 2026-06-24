@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ImageUploader from "@/components/ImageUploader";
 import StylePicker from "@/components/StylePicker";
+import AuthGuard from "@/components/AuthGuard";
 import type { VideoStyle } from "@/lib/minimax";
 
-export default function HomePage() {
+function HomePageInner() {
   const router = useRouter();
   const [images, setImages] = useState<File[]>([]);
   const [style, setStyle] = useState<VideoStyle>("walkthrough");
@@ -176,5 +177,13 @@ export default function HomePage() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <AuthGuard>
+      <HomePageInner />
+    </AuthGuard>
   );
 }

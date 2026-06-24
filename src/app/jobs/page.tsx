@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import JobCard from "@/components/JobCard";
+import AuthGuard from "@/components/AuthGuard";
 import type { Job } from "@/lib/types";
 import { Suspense } from "react";
 
@@ -112,8 +113,10 @@ function JobsPageInner() {
 
 export default function JobsPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-500">Loading…</div>}>
-      <JobsPageInner />
-    </Suspense>
+    <AuthGuard>
+      <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-500">Loading…</div>}>
+        <JobsPageInner />
+      </Suspense>
+    </AuthGuard>
   );
 }
