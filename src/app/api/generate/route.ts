@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
   }
 
   const jobId = uuidv4();
-  const bucket = adminStorage.bucket();
+  const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!;
+  const bucket = adminStorage.bucket(bucketName);
   const imageUrls: string[] = [];
 
   // Upload all images to Firebase Storage
@@ -37,11 +38,17 @@ export async function POST(req: NextRequest) {
     const path = `jobs/${jobId}/${uuidv4()}.${ext}`;
     const fileRef = bucket.file(path);
 
-    await fileRef.save(buffer, { contentType: file.type });
-    await fileRef.makePublic();
+    await fileRef.save(buffer, {
+      contentType: file.type,
+      metadata: { cacheControl: "public, max-age=31536000" },
+    });
 
-    const url = `https://storage.googleapis.com/${bucket.name}/${path}`;
-    imageUrls.push(url);
+    // Generate a signed URL valid for 7 days (avoids needing makePublic/ACLs)
+    const [signedUrl] = await fileRef.getSignedUrl({
+      action: "read",
+      expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    });
+    imageUrls.push(signedUrl);
   }
 
   // Use first image as the cover and for video generation

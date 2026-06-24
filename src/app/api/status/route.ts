@@ -35,12 +35,17 @@ export async function GET(req: NextRequest) {
 
       if (videoRes.ok) {
         const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
-        const bucket = (await import("@/lib/firebase-admin")).adminStorage.bucket();
+        const { adminStorage } = await import("@/lib/firebase-admin");
+        const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!;
+        const bucket = adminStorage.bucket(bucketName);
         const videoPath = `jobs/${jobId}/output.mp4`;
         const videoFile = bucket.file(videoPath);
         await videoFile.save(videoBuffer, { contentType: "video/mp4" });
-        await videoFile.makePublic();
-        videoUrl = `https://storage.googleapis.com/${bucket.name}/${videoPath}`;
+        const [signedUrl] = await videoFile.getSignedUrl({
+          action: "read",
+          expires: Date.now() + 365 * 24 * 60 * 60 * 1000,
+        });
+        videoUrl = signedUrl;
       }
 
       await adminDb.collection("jobs").doc(jobId).update({
