@@ -24,8 +24,12 @@ export async function createTopupCheckout(
   const apiKey = process.env.LEMONSQUEEZY_API_KEY;
   const storeId = process.env.LEMONSQUEEZY_STORE_ID;
   const variantId = process.env.LEMONSQUEEZY_VARIANT_ID;
-  if (!apiKey || !storeId || !variantId) {
-    throw new Error("LemonSqueezy is not configured (missing env vars).");
+  const missing: string[] = [];
+  if (!apiKey) missing.push("LEMONSQUEEZY_API_KEY");
+  if (!storeId) missing.push("LEMONSQUEEZY_STORE_ID");
+  if (!variantId) missing.push("LEMONSQUEEZY_VARIANT_ID");
+  if (missing.length) {
+    throw new Error(`LemonSqueezy not configured — missing: ${missing.join(", ")}`);
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
