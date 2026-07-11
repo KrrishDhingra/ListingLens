@@ -3,6 +3,9 @@ import type { VideoStyle } from "./minimax";
 export interface Job {
   id: string;
   createdAt: number;
+  userId?: string | null;
+  userEmail?: string | null;
+  chargedCents?: number;
   status: "uploading" | "processing" | "success" | "failed";
   style: VideoStyle;
   styleLabel: string;

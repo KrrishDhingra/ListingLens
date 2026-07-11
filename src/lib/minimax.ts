@@ -66,7 +66,6 @@ export async function createVideoTask(
 export async function queryVideoTask(taskId: string): Promise<{
   status: "Queueing" | "Processing" | "Success" | "Fail";
   fileId?: string;
-  downloadUrl?: string;
 }> {
   const res = await fetch(
     `${MINIMAX_BASE}/v1/query/video_generation?task_id=${taskId}`,
@@ -81,8 +80,61 @@ export async function queryVideoTask(taskId: string): Promise<{
   return {
     status: data.status,
     fileId: data.file_id,
-    downloadUrl: data.file_id
-      ? `${MINIMAX_BASE}/v1/files/retrieve?GroupId=${process.env.MINIMAX_GROUP_ID}&file_id=${data.file_id}`
-      : undefined,
   };
+}
+
+/**
+ * Download a finished video's bytes using MiniMax's documented two-step flow:
+ *   1. GET /v1/files/retrieve  -> JSON containing file.download_url
+ *   2. fetch that download_url -> the actual MP4 bytes
+ * Returns the raw video buffer + content type. Throws with a descriptive
+ * message on any failure so the caller can mark the job failed cleanly.
+ */
+export async function downloadVideo(
+  fileId: string
+): Promise<{ buffer: Buffer; contentType: string }> {
+  // Step 1: resolve the temporary download URL. GroupId is included when
+  // configured (required on some MiniMax accounts).
+  const groupId = process.env.MINIMAX_GROUP_ID;
+  const retrieveUrl =
+    `${MINIMAX_BASE}/v1/files/retrieve?file_id=${fileId}` +
+    (groupId ? `&GroupId=${groupId}` : "");
+
+  const metaRes = await fetch(retrieveUrl, {
+    headers: { Authorization: `Bearer ${process.env.MINIMAX_API_KEY}` },
+  });
+
+  const metaText = await metaRes.text();
+  if (!metaRes.ok) {
+    throw new Error(`files/retrieve failed ${metaRes.status}: ${metaText}`);
+  }
+
+  let meta: any;
+  try {
+    meta = JSON.parse(metaText);
+  } catch {
+    throw new Error(`files/retrieve returned non-JSON: ${metaText.slice(0, 300)}`);
+  }
+
+  if (meta.base_resp && meta.base_resp.status_code !== 0) {
+    throw new Error(`files/retrieve error: ${meta.base_resp.status_msg}`);
+  }
+
+  const downloadUrl: string | undefined =
+    meta.file?.download_url || meta.file?.backup_download_url;
+  if (!downloadUrl) {
+    throw new Error(
+      `No download_url in files/retrieve response: ${metaText.slice(0, 300)}`
+    );
+  }
+
+  // Step 2: fetch the actual video bytes from the resolved URL.
+  const videoRes = await fetch(downloadUrl);
+  if (!videoRes.ok) {
+    throw new Error(`Video download failed ${videoRes.status} from download_url`);
+  }
+
+  const contentType = videoRes.headers.get("content-type") || "video/mp4";
+  const buffer = Buffer.from(await videoRes.arrayBuffer());
+  return { buffer, contentType };
 }

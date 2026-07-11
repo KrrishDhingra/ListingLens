@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getAuth } from "firebase/auth";
 import ImageUploader from "@/components/ImageUploader";
 import StylePicker from "@/components/StylePicker";
 import AuthGuard from "@/components/AuthGuard";
@@ -34,7 +35,14 @@ function HomePageInner() {
       fd.append("resolution", resolution);
       fd.append("duration", String(duration));
 
-      const res = await fetch("/api/generate", { method: "POST", body: fd });
+      // Attach Firebase ID token so the server can identify the user
+      // (per-user rate limiting + owner exemption).
+      const idToken = await getAuth().currentUser?.getIdToken();
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined,
+        body: fd,
+      });
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || "Something went wrong");
@@ -96,7 +104,7 @@ function HomePageInner() {
                   <button
                     key={r}
                     type="button"
-                    onClick={() => setResolution(r)}
+                    onClick={() => { setResolution(r); if (r === "1080P") setDuration(6); }}
                     className={`flex-1 py-2 rounded-xl text-sm font-medium border-2 transition-all ${
                       resolution === r
                         ? "border-brand-500 bg-brand-50 text-brand-700"
@@ -114,21 +122,30 @@ function HomePageInner() {
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Duration</label>
               <div className="flex gap-2">
-                {([6, 10] as const).map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDuration(d)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium border-2 transition-all ${
-                      duration === d
-                        ? "border-brand-500 bg-brand-50 text-brand-700"
-                        : "border-slate-200 text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    {d}s
-                  </button>
-                ))}
+                {([6, 10] as const).map((d) => {
+                  const disabled = d === 10 && resolution === "1080P";
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => { if (!disabled) setDuration(d); }}
+                      className={`flex-1 py-2 rounded-xl text-sm font-medium border-2 transition-all ${
+                        disabled
+                          ? "border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed"
+                          : duration === d
+                          ? "border-brand-500 bg-brand-50 text-brand-700"
+                          : "border-slate-200 text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      {d}s{disabled && <span className="ml-1 text-xs">N/A</span>}
+                    </button>
+                  );
+                })}
               </div>
+              {resolution === "1080P" && (
+                <p className="text-xs text-slate-400 mt-1">10s not available at 1080P</p>
+              )}
             </div>
           </div>
 

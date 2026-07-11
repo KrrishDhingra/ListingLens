@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/lib/auth-context";
 import { usePathname } from "next/navigation";
+import WalletBadge from "./WalletBadge";
 
 export default function Navbar() {
   const { user, signInWithGoogle, signOutUser } = useAuth();
@@ -35,6 +36,8 @@ export default function Navbar() {
               </Link>
             </>
           )}
+
+          {user && !isLogin && <WalletBadge />}
 
           {user ? (
             <div className="flex items-center gap-3">
